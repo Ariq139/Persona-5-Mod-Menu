@@ -23,12 +23,15 @@ global int gFieldMajor;
 global int gFieldMinor;
 global int gEventMajor;
 global int gEventMinor;
+global int gKfEventMajor;
+global int gKfEventMinor;
 
 void ModMenuDisplay()
 {
     ALL_ENABLE_SHARE_PLAY(); //Re-enables screen recording
     BIT_OFF( 4099 ); //Removes your "tired" status
-    
+    PrintPosition(); //Logs your current coordinates
+	
     while ( true )
     {
         int selection = SEL_GENERIC( -1, ModMenu );
@@ -70,10 +73,21 @@ void ModMenuDisplay()
                 CallOriginalSquareMenu();
                 break;
             case 11:
-                AboutDialogDisplay(); 
+                AboutDialogDisplay();
                 break;
         }
     }
+}
+
+void PrintPosition()
+{
+	int pcHandle = FLD_PC_GET_RESHND( 0 );
+	PUTS( "X:" );
+	PUT( FLD_MODEL_GET_X_TRANSLATE( pcHandle ) );
+	PUTS( "Y:" );
+	PUT( FLD_MODEL_GET_Y_TRANSLATE( pcHandle ) );
+	PUTS( "Z:" );
+	PUT( FLD_MODEL_GET_Z_TRANSLATE( pcHandle ) );
 }
 
 // Player Editor
@@ -143,9 +157,12 @@ void PersonaEditorOpen()
             case 2:
                 PersonaAddSkillMenuOpen();
                 break;
-			case 3:
-				PersonaAddAllToCompendium();
-				break;
+            case 3:
+                PersonaAddAllToCompendium();
+                break;
+			case 4:
+                EvolvePersona();
+                break;
         }
     }
 }
@@ -250,10 +267,46 @@ void PersonaAddSkillSelect( bool useNumberInput )
 
 void PersonaAddAllToCompendium() 
 {
-	for (int i = 0; i < 463; i++) {
-		ADD_PERSONA_STOCK( i );
-		CLEAR_PERSONA_STOCK();
-	}
+    for ( int i = 0; i < 463; i++ )
+    {
+        if ( i % 6 == 0 )
+            CLEAR_PERSONA_STOCK();
+
+        ADD_PERSONA_STOCK( i );
+    }
+    CLEAR_PERSONA_STOCK();
+}
+
+void EvolvePersona()
+{
+    int selection = SEL_GENERIC_NOT_HELP( -1, UnitSelect3 );
+
+    switch ( selection )
+    {
+        case -1:
+            break;
+        case 0:
+            PERSONA_EVOLUTION( 2 );
+            break;
+        case 1:
+            PERSONA_EVOLUTION( 3 );
+            break;
+        case 2:
+            PERSONA_EVOLUTION( 4 );
+            break;
+        case 3:
+            PERSONA_EVOLUTION( 5 );
+            break;
+        case 4:
+            PERSONA_EVOLUTION( 6 );
+            break;
+        case 5:
+            PERSONA_EVOLUTION( 7 );
+            break;
+        case 6:
+            PERSONA_EVOLUTION( 8 );
+            break;
+    }
 }
 
 // Stat Editor
@@ -350,11 +403,16 @@ void ItemGetSelect( int type )
     int amount = SelectNumberPrompt( ItemPrompt2, 2 );
     if (amount == -1)
         return;
-    
-    GET_ITEM_BUF_RESET();
+		
+	ItemGet( type, itemId, amount);
+	GET_ITEMS_WINDOW( 0 );
+}
+
+void ItemGet( int type, int itemId, int amount)
+{
+	GET_ITEM_BUF_RESET();
     GET_ITEM_BUF_SET( type + itemId, amount );
     SET_ITEM_NUM( type + itemId, GET_ITEM_NUM( type + itemId ) + amount );
-    GET_ITEMS_WINDOW( 0 );
 }
 
 void CommuSetRankSelect()
@@ -394,10 +452,10 @@ void PlayerAnimViewerDisplay()
                 FieldModelAnimViewerDisplay( FLD_PC_GET_RESHND( 0 ) );
                 break;
             case 1: // Morgana Out of Bag
-                SUB_MoruShowFace();
+                MorganaShowFace();
                 break;
             case 2: // Morgana In Bag
-                SUB_MoruReturnBag();
+                MorganaReturnBag();
                 break;
             case 3: // Show Bag
                 BIT_ON( 4206 );
@@ -746,6 +804,7 @@ void NpcControlMenuDisplay()
                 return;
             case 0: // Spawn Model
                 NpcSpawnSelect();
+				PrintPosition();
                 break;
             case 1: // Animate Model
                 NpcAnimViewerDisplay( gLastSpawnedNpcModelHandle );
@@ -758,6 +817,7 @@ void NpcControlMenuDisplay()
                 break;
             case 4: // Spawn Object
                 NpcSpawnObjectModel(FLD_PC_GET_RESHND(0));
+				PrintPosition();
                 break;
         }
     }
@@ -1472,8 +1532,11 @@ void FieldSelect()
                 if (gFieldMajor == 0 && gFieldMinor == 0)
                     MSG_SYSTEM( LoadCheckError );
                 else
-                    CALL_FIELD( gFieldMajor, gFieldMinor, 0, 0 );
+                    CALL_FIELD( gFieldMajor, gFieldMinor, 0, 0  );
                 return;
+			case 2:
+				CALL_FIELD( FLD_GET_PREV_MAJOR(), FLD_GET_PREV_MINOR(), 0, 0 );
+				return;
         }
     }
     
@@ -1495,6 +1558,12 @@ void EventSelect()
                 break;
             case 1:
                 EventLoadSelected();
+                return;
+			case 2:
+                KfEventSelectIds();
+                break;
+            case 3:
+                KfEventLoadSelected();
                 return;
         }
     }
@@ -1526,11 +1595,37 @@ void EventLoadSelected()
     ReloadPreviousField();
 }
 
+void KfEventSelectIds()
+{
+    int temp = SelectNumberPrompt( KfEventDlg, 3 );
+    if ( temp == -1 )
+        return;
+    gKfEventMajor = temp;
+
+    temp = SelectNumberPrompt( KfEventDlg2, 3 );
+    if ( temp == -1 )
+        return;
+
+    gKfEventMinor = temp;
+}
+
+void KfEventLoadSelected()
+{
+    if ( gKfEventMajor == 0 && gKfEventMinor == 0 )
+    {
+        MSG_SYSTEM(LoadCheckError);
+        return;
+    }
+
+    CALL_KF_EVENT( gKfEventMajor, gKfEventMinor, 0, 0 );
+    ReloadPreviousField();
+}
+
 void PlayerSetMaxMoney() 
 {
-    GET_MONEY_WINDOW( 999999, 0 );
+    GET_MONEY_WINDOW( 9999999, 0 );
     CALL_GLOBAL_MONEY_PANEL();
-    CHANGE_GLOBAL_MONEY( 999999, 0 );
+    CHANGE_GLOBAL_MONEY( 9999999, 0 );
     DEL_GLOBAL_MONEY_PANEL();
 }
 
@@ -1554,6 +1649,9 @@ void CalendarEditorDisplay()
             case 2:
                 ChangeWeather();
                 break;
+			case 3:
+				LoopCurrentTime();
+				break;
         }
     }
 }
@@ -1618,8 +1716,13 @@ void CalendarSetNextDaySelect()
 
 void CallCalendar()
 {
-    Fld_FadeOut_CallCalendar();
+    CalendarFade();
     CALL_CALENDAR();
+}
+
+void LoopCurrentTime()
+{
+	SET_NEXT_DAY( GET_MONTH(), GET_DAY(), GET_TIME());
 }
 
 void ChangeWeather() 
@@ -1661,22 +1764,25 @@ void FlagsEditorDisplay()
             case 3:
                 EnablePartyEditing();
                 break;
-            case 4:
+			case 4:
+				SelectFollowers();
+				break;
+            case 5:
                 SelectNavigator();
                 break;
-            case 5:
+            case 6:
                 SelectRomanceFlags();
                 break;
-            case 6:
+            case 7:
                 RoomEditorDisplay();
                 break;
-            case 7: // Manual Input
+            case 8: // Manual Input
                 SelectBitToggle();
                 break;
-            case 8:
+            case 9:
                 PrintEnabledBits();
                 break;
-            case 9:
+            case 10:
                 FlagMassEditor();
                 break;
         }
@@ -1704,19 +1810,26 @@ void FlagMassEditor() {
             case 3:
                 ToggleRange();
                 break;
+			case 4:
+				CLEAR_INHERIT_DATA();
+				break;
         }
     }
 }
 
 void DisableAllBits() {
-    for ( int i = 0; i < 8960; i++ ) {
-        BIT_OFF( i );
+    for ( int i = 0; i < 8960; i++ ) 
+	{
+		BIT_OFF( i ); 
     }
 }
 
 void EnableAllBits() {
     for ( int i = 0; i < 8960; i++ ) {
-        BIT_ON( i );
+        if (i != 320) 
+		{ 
+			BIT_ON( i ); 
+		}
     }
 }
 
@@ -1725,7 +1838,7 @@ void ToggleAllBits() {
         if (BIT_CHK(i)) {
             BIT_OFF(i);
         }
-        else {
+        else if (i != 320) {
             BIT_ON(i);
         }
     }
@@ -1733,7 +1846,8 @@ void ToggleAllBits() {
 
 void PrintEnabledBits() {
     for ( int i = 0; i < 8960; i++ ) {
-        if (BIT_CHK(i)) {
+        if (BIT_CHK(i)) 
+		{
             PUT(i);
         }
     }
@@ -1754,13 +1868,16 @@ void ToggleRange() {
         case 0: // On
             for ( int i = range1; i < range2; i++ ) 
             {
-                BIT_ON( i );
+				if (i != 320) 
+				{
+					BIT_ON( i );
+				}
             }
             break;
         case 1: // Off
             for ( int i = range1; i < range2; i++ ) 
             {
-                BIT_OFF( i );
+				BIT_OFF( i );
             }
             break;
     }
@@ -1822,14 +1939,33 @@ void SelectRemovePartyMember()
 
 void EnablePartyEditing()
 {
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 0);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 1);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 2);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 3);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 4);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 5);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 6);
-    BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 7);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 0);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 1);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 2);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 3);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 4);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 5);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 6);
+	BIT_OFF( 0 + 0x0800 + 0x0800 + 0x1000 + 0x0103 + 7);
+}
+
+void SelectFollowers()
+{
+	int unit = SEL_GENERIC_NOT_HELP( UnitMenuName, UnitSelect2 );
+	unit = unit + 4114;
+	BIT_ON( 4161 );
+	int onOff = SEL_GENERIC_NOT_HELP( -1, SelectOnOff );
+    switch (onOff) 
+    {
+        case -1: // Back
+            break;
+        case 0: // On
+            BIT_ON( unit );
+            break;
+        case 1: // Off
+            BIT_OFF( unit );
+            break;
+    }
 }
 
 void SelectNavigator()
@@ -2115,4 +2251,36 @@ void ReloadPreviousField()
         // Reload previous field
         CALL_FIELD( FLD_GET_PREV_MAJOR(), FLD_GET_PREV_MINOR(), 0, 0 );
     }
+}
+
+void MorganaShowFace()
+{
+    
+    if ( FLD_CHECK_MORGANA_BAG() == 1 )
+    {
+        int localVariable35 = FLD_PC_GET_CURRENT_RESHND( 0 );
+        int localVariable36 = MDL_GET_ITEM_RESHND( localVariable35, 2 );
+        MDL_ANIM( localVariable36, 50, 0, 0, 1f );
+        MDL_ANIM_NEXT( localVariable36, 51, 1, 0, 1f );
+    }
+
+}
+
+void MorganaReturnBag()
+{
+    
+    if ( FLD_CHECK_MORGANA_BAG() == 1 )
+    {
+        int localVariable37 = FLD_PC_GET_CURRENT_RESHND( 0 );
+        int localVariable38 = MDL_GET_ITEM_RESHND( localVariable37, 2 );
+        MDL_ANIM( localVariable38, 52, 0, 5, 1f );
+        MDL_ANIM_NEXT( localVariable38, 0, 1, 0, 1f );
+    }
+
+}
+
+void CalendarFade()
+{
+    FADEOUT( 15, 10 );
+    FADE_SYNC();
 }
